@@ -23,12 +23,40 @@ class PartialBuildAction : BaseGenerationAnAction() {
         val element = event.getData(CommonDataKeys.VIRTUAL_FILE) ?: return showErrorMessage(message)
         val elementURI = File(element.path).toURI()
         // Get relative path
-        val relativePath = projectURI.relativize(elementURI).path.let { path ->
+        val parentDirectory = projectURI.relativize(elementURI).path.substringBefore("/lib")
+        val subPath = projectURI.relativize(elementURI).path.substringAfter("$parentDirectory/")
+        val relativePath = subPath.let { path ->
             if (element.isDirectory) path.plus("**")
             else path
         }
-        // Set and execute command
-        val command = "$command --build-filter=\"$relativePath\""
-        execCommand(project, projectPath, command)
+        if (element.isDirectory) {
+            val command = "cd $parentDirectory && $command --build-filter=\"${relativePath}\""
+            execCommand(project, projectPath, command)
+        } else {
+            val file = File(element.path)
+            val lines = file.readLines()
+
+            val partFiles = mutableListOf<String>()
+
+            lines.forEach { line ->
+                if (line.startsWith("part")) {
+                    val partFilePath = line.substringAfter("part").trim().removePrefix("'").removeSuffix("';")
+                    partFiles.add(partFilePath)
+                }
+            }
+
+            var command = "cd $parentDirectory && $command "
+            val lastIndex = relativePath.lastIndexOf('/')
+            val folderPath = relativePath.substring(0, lastIndex)
+
+            partFiles.forEachIndexed { index, partFile ->
+                if (index > 0) {
+                    command += " &&"
+                }
+                command += " --build-filter=\"${"$folderPath/$partFile"}\""
+            }
+
+            execCommand(project, projectPath, command)
+        }
     }
 }
