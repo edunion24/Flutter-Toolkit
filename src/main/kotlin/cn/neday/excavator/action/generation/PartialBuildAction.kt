@@ -45,6 +45,10 @@ class PartialBuildAction : BaseGenerationAnAction() {
                 }
             }
 
+            if (partFiles.isEmpty()) {
+                return
+            }
+
             var command = "cd $parentDirectory && $command "
             val lastIndex = relativePath.lastIndexOf('/')
             val folderPath = relativePath.substring(0, lastIndex)
